@@ -125,20 +125,37 @@ LOG_LEVEL=info
 
 ## User Management
 
-Create users via the Management API:
+### Admin Credentials
+
+The Management API is protected with basic authentication. During `./setup.sh`, admin credentials are automatically generated and saved to `.admin-credentials`:
 
 ```bash
-# Create a user
+# View your admin credentials
+cat .admin-credentials
+```
+
+**Username:** `admin`
+**Password:** Auto-generated during setup (stored in `.admin-credentials`)
+
+### Managing AIM Users
+
+Create users via the Management API (requires authentication):
+
+```bash
+# For production (with authentication)
+curl -u admin:YOUR_PASSWORD -d'{"screen_name":"MyScreenName", "password":"mypassword"}' https://aim.yourdomain.com/user
+
+# For local development (no auth)
 curl -d'{"screen_name":"MyScreenName", "password":"mypassword"}' http://localhost:8080/user
 
 # List users
-curl http://localhost:8080/user
+curl -u admin:YOUR_PASSWORD https://aim.yourdomain.com/user
 
 # Delete user
-curl -X DELETE -d'{"screen_name":"MyScreenName"}' http://localhost:8080/user
+curl -u admin:YOUR_PASSWORD -X DELETE -d'{"screen_name":"MyScreenName"}' https://aim.yourdomain.com/user
 
 # Change password
-curl -X PUT -d'{"screen_name":"MyScreenName", "password":"newpassword"}' http://localhost:8080/user/password
+curl -u admin:YOUR_PASSWORD -X PUT -d'{"screen_name":"MyScreenName", "password":"newpassword"}' https://aim.yourdomain.com/user/password
 ```
 
 ## Docker Commands
@@ -205,27 +222,40 @@ The Caddy deployment includes SSL/TLS support for OSCAR and TOC protocols using 
 
 ### Configuration Steps
 
-1. **Update stunnel configuration** with your domain:
+1. **Run setup.sh** (if not done already):
+   ```bash
+   ./setup.sh
+   ```
+   This will generate admin credentials in `.admin-credentials` file.
+
+2. **Update stunnel configuration** with your domain:
    ```bash
    nano config/ssl/stunnel.conf
    # Replace all instances of 'aim.example.com' with your actual domain
    ```
 
-2. **Add Caddy configuration** from `Caddyfile.example`:
+3. **Add Caddy configuration** from `Caddyfile.example`:
    ```bash
    # Add to your main Caddyfile
    aim.yourdomain.com {
        reverse_proxy retro-aim-server:8080
+
+       # Add the basicauth hash from .admin-credentials
+       basicauth {
+           admin YOUR_BCRYPT_HASH_FROM_ADMIN_CREDENTIALS_FILE
+       }
+
        # ... (see Caddyfile.example for full config)
    }
    ```
+   **Important:** Replace `YOUR_BCRYPT_HASH_FROM_ADMIN_CREDENTIALS_FILE` with the hash from `.admin-credentials`
 
-3. **Deploy with Caddy**:
+4. **Deploy with Caddy**:
    ```bash
    ./deploy-caddy.sh
    ```
 
-4. **Reload Caddy** to apply configuration:
+5. **Reload Caddy** to apply configuration:
    ```bash
    docker exec -w /etc/caddy caddy caddy reload
    ```

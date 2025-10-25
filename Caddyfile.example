@@ -9,6 +9,13 @@ aim.example.com {
     # Enable compression
     encode gzip zstd
 
+    # Restrict access to management API with basic auth
+    # IMPORTANT: Replace the hash below with the one from .admin-credentials
+    # Generated during setup.sh
+    basicauth {
+        admin YOUR_BCRYPT_HASH_HERE
+    }
+
     # Security headers
     header {
         # Enable HSTS
@@ -20,11 +27,6 @@ aim.example.com {
         # Referrer policy
         Referrer-Policy "strict-origin-when-cross-origin"
     }
-
-    # Optional: Restrict access to management API
-    # basicauth {
-    #     admin $2a$14$Zkx19XLiW6VYouLHR5NmfOFU0z2GTNmpkT/5qqR7hx4wHQWiDpZZ
-    # }
 }
 
 # SSL/TLS for OSCAR and TOC protocols:

@@ -2,6 +2,7 @@ retro-aim-server/
 
 # Environment and secrets
 .env
+.admin-credentials
 
 # Data directory (database)
 data/

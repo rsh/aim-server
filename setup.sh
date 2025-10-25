@@ -133,7 +133,74 @@ echo -e "${GREEN}✓${NC} Set data directory permissions"
 echo ""
 
 # ============================================================================
-# 5. Build Docker Image
+# 5. Generate Admin Credentials for Management API
+# ============================================================================
+
+echo "═══════════════════════════════════════════════════════"
+echo "  🔐 Admin Credentials Setup"
+echo "═══════════════════════════════════════════════════════"
+echo ""
+
+if [ ! -f ".admin-credentials" ]; then
+    echo "Generating secure admin password for Management API..."
+
+    # Generate random password (16 characters, alphanumeric)
+    ADMIN_PASSWORD=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+
+    # Generate bcrypt hash using caddy (if available) or docker
+    if command -v caddy &> /dev/null; then
+        ADMIN_HASH=$(caddy hash-password --plaintext "$ADMIN_PASSWORD")
+    elif command -v docker &> /dev/null; then
+        # Use Caddy docker image to generate hash
+        ADMIN_HASH=$(docker run --rm caddy:latest caddy hash-password --plaintext "$ADMIN_PASSWORD")
+    else
+        echo -e "${YELLOW}⚠${NC}  Cannot generate bcrypt hash (caddy not available)"
+        echo "Password: $ADMIN_PASSWORD"
+        echo "Generate hash manually with: caddy hash-password --plaintext '$ADMIN_PASSWORD'"
+        ADMIN_HASH="GENERATE_MANUALLY"
+    fi
+
+    # Save credentials
+    cat > .admin-credentials << EOF
+# Management API Admin Credentials
+# Generated: $(date)
+#
+# Add this to your Caddyfile for the Management API block:
+#
+#   basicauth {
+#       admin $ADMIN_HASH
+#   }
+
+Username: admin
+Password: $ADMIN_PASSWORD
+Bcrypt Hash: $ADMIN_HASH
+EOF
+
+    chmod 600 .admin-credentials
+
+    echo -e "${GREEN}✓${NC} Admin credentials generated and saved to .admin-credentials"
+    echo ""
+    echo -e "${BLUE}Admin Credentials:${NC}"
+    echo "  Username: admin"
+    echo "  Password: $ADMIN_PASSWORD"
+    echo ""
+    echo -e "${YELLOW}⚠ IMPORTANT: Save this password! It's also stored in .admin-credentials${NC}"
+    echo ""
+    echo "To enable authentication, add this to your Caddyfile:"
+    echo ""
+    echo "  basicauth {"
+    echo "      admin $ADMIN_HASH"
+    echo "  }"
+    echo ""
+else
+    echo -e "${YELLOW}⚠${NC}  .admin-credentials already exists, skipping generation"
+    echo "  Existing credentials are in: .admin-credentials"
+fi
+
+echo ""
+
+# ============================================================================
+# 6. Build Docker Image
 # ============================================================================
 
 echo "═══════════════════════════════════════════════════════"
@@ -150,7 +217,7 @@ echo -e "${GREEN}✓${NC} Docker image built successfully"
 echo ""
 
 # ============================================================================
-# 6. Success Message
+# 7. Success Message
 # ============================================================================
 
 echo ""
