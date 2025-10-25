@@ -40,7 +40,8 @@ services:
       - ./config/ssl/stunnel.conf:/etc/stunnel/stunnel.conf:ro
       # Mount Caddy's certificate directory (READ-ONLY)
       # This allows stunnel to use Caddy's auto-renewed Let's Encrypt certs
-      - caddy_data:/certs:ro
+      # Update this path to match where your Caddy stores certificates on the host
+      - ${CADDY_DATA_PATH:-../caddy/caddy-data}:/certs:ro
     networks:
       - aim-network
     depends_on:
@@ -55,7 +56,7 @@ networks:
   caddy_network:
     external: true
 
-volumes:
-  # Mount Caddy's data volume to access Let's Encrypt certificates
-  caddy_data:
-    external: true
+# volumes:
+  # No longer using external Docker volume
+  # Certificates are now accessed via bind mount from host filesystem
+  # Set CADDY_DATA_PATH in .env to point to your Caddy data directory

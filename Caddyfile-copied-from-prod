@@ -1,0 +1,159 @@
+wiki.rayhan.com {
+    reverse_proxy rayhan-wiki:80
+    encode gzip
+}
+
+meetcue.rsh.co {
+    reverse_proxy meetingcue:5000
+    encode gzip
+}
+
+taskset.rsh.co {
+    reverse_proxy task-dag:5000
+    encode gzip
+}
+
+nyc-jobs.rsh.co {
+    reverse_proxy nyc-jobs-web:5001
+    encode gzip
+}
+
+
+cats.rsh.co {
+    # Serve static files from the mounted directory
+    root * /var/www/host-public/cats
+
+    # Try files in order: exact path, with .html extension, index.html in directory
+    try_files {path} {path}.html {path}/index.html
+
+    # Enable file server
+    file_server
+
+    # Add basic security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+    }
+
+    # Enable gzip compression
+    encode gzip
+}
+
+cats2.rsh.co {
+    # Serve static files from the mounted directory
+    root * /var/www/host-public/cats
+
+    # Try files in order: exact path, with .html extension, index.html in directory
+    try_files {path} {path}.html {path}/index.html
+
+    # Enable file server
+    file_server
+
+    # Add basic security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+    }
+
+    # Enable gzip compression
+    encode gzip
+}
+
+time.rsh.co {
+    # Serve static files from the mounted directory
+    root * /var/www/host-public/time
+
+    # Try files in order: exact path, with .html extension, index.html in directory
+    try_files {path} {path}.html {path}/index.html
+
+    # Enable file server
+    file_server
+
+    # Add basic security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+    }
+
+    # Enable gzip compression
+    encode gzip
+}
+
+internetnewswebsite.com {
+	redir https://www.internetnewswebsite.com
+}
+
+www.internetnewswebsite.com {
+    reverse_proxy internetnewswebsite:5000
+    encode gzip
+}
+
+realwebsite.page {
+	redir https://www.realwebsite.page
+}
+
+www.realwebsite.page {
+    # Serve static files from the mounted directory
+    root * /var/www/host-public/realwebsite.page
+    try_files {path} {path}.html {path}/index.html
+    file_server
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+    }
+
+    handle_errors {
+      @404 {
+        expression {http.error.status_code} == 404
+      }
+      rewrite @404 /404.html
+        file_server
+    }
+
+    encode gzip
+}
+
+
+analytics.rsh.co {
+    reverse_proxy umami_app:3000
+}
+
+chat.rsh.co {
+    reverse_proxy chat-app-frontend:80
+
+    # Enable compression
+    encode gzip zstd
+
+    # Security headers
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent XSS attacks
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+# Backend API
+api.chat.rsh.co {
+    reverse_proxy chat-app-backend:5000
+
+    # Enable compression
+    encode gzip zstd
+
+    # WebSocket support
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websockets chat-app-backend:5000
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+    }
+}

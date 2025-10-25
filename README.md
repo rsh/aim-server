@@ -4,26 +4,42 @@ This directory contains scripts to easily set up, manage, and back up a [Retro A
 
 ## Quick Start
 
-### Development/Local Use
+**Choose your deployment method:**
+
+### Development/Local Use (No Caddy)
+
+For testing locally without SSL/TLS or Caddy:
 
 ```bash
-# Initial setup (clones repo, builds image, creates config)
+# 1. Initial setup (clones repo, builds image, creates config)
 ./setup.sh
 
-# Start the server
+# 2. Start the server (dev mode)
 ./start.sh
 
-# Stop the server
+# 3. Stop the server
 ./stop.sh
 ```
 
-### Production Deployment with Caddy
+**Access:**
+- Management API: `http://localhost:8080`
+- OSCAR: `localhost:5190` (plain only, no SSL)
+- TOC: `localhost:9898` (plain only, no SSL)
+
+---
+
+### Production Deployment with Caddy (SSL/TLS)
+
+For production with HTTPS and SSL-encrypted chat connections:
 
 ```bash
-# Initial setup (if not done)
+# 1. Initial setup - generates credentials and configs
 ./setup.sh
 
-# Deploy with Caddy reverse proxy
+# 2. Add Caddyfile.generated to your main Caddy config
+#    (See Production Deployment section below)
+
+# 3. Deploy with Caddy + stunnel
 ./deploy-caddy.sh
 
 # View status
@@ -33,7 +49,14 @@ This directory contains scripts to easily set up, manage, and back up a [Retro A
 ./deploy-caddy.sh logs
 ```
 
-See [Production Deployment](#production-deployment) section below for details.
+**Access:**
+- Management API: `https://aim.yourdomain.com` (HTTPS + auth)
+- OSCAR SSL: `chat.yourdomain.com:5193` (encrypted)
+- TOC SSL: `chat.yourdomain.com:9899` (encrypted)
+
+**Important:** After `setup.sh`, use `deploy-caddy.sh` (NOT `start.sh`) for production!
+
+See [Production Deployment](#production-deployment-with-ssltls) section below for full details.
 
 ## Scripts
 
@@ -219,11 +242,15 @@ The Caddy deployment includes SSL/TLS support for OSCAR and TOC protocols using 
 
 ### Prerequisites
 - Existing Caddy server with `caddy_network` Docker network
-- `caddy_data` Docker volume (created by Caddy)
+- Caddy certificate directory accessible on host filesystem (bind mount recommended)
+  - **New Setup:** See `DEPLOYMENT-GUIDE.md` for bind mount configuration
+  - **Legacy Setup:** `caddy_data` Docker volume (deprecated approach)
 - Domain name with subdomains pointing to your server:
   - `aim.yourdomain.com` - Management API
   - `chat.yourdomain.com` - Chat connections (OSCAR/TOC)
 - Firewall configured for ports: 443, 5190, 5193, 9898, 9899
+
+**Note:** This setup now uses bind mounts for certificate sharing instead of Docker volumes. See `DEPLOYMENT-GUIDE.md` for complete instructions.
 
 ### DNS Setup
 
@@ -235,20 +262,34 @@ chat.yourdomain.com → your.server.ip.address
 
 ### Configuration Steps
 
-1. **Run setup.sh** (if not done already):
+**For detailed deployment instructions with bind mounts, see `DEPLOYMENT-GUIDE.md`**
+
+1. **Configure Caddy for bind mounts** (if not already done):
+   - Update Caddy's docker-compose.yml to use bind mounts
+   - See `CADDY-SETUP-INSTRUCTIONS.md` for details
+
+2. **Run setup.sh** (if not done already):
    ```bash
    ./setup.sh
    ```
    This will generate admin credentials and `Caddyfile.generated`
 
-2. **Update stunnel configuration** with your chat subdomain:
+3. **Set CADDY_DATA_PATH in .env**:
+   ```bash
+   # Path to where Caddy stores certificates on host
+   CADDY_DATA_PATH=/path/to/caddy/caddy-data
+   # Or use relative path if Caddy is in a sibling directory:
+   # CADDY_DATA_PATH=../caddy/caddy-data
+   ```
+
+4. **Update stunnel configuration** with your chat subdomain:
    ```bash
    nano config/ssl/stunnel.conf
    # Replace 'chat.example.com' with your actual chat subdomain
    # (e.g., chat.yourdomain.com)
    ```
 
-3. **Add Caddyfile configuration** (use the auto-generated `Caddyfile.generated`):
+5. **Add Caddyfile configuration** (use the auto-generated `Caddyfile.generated`):
    ```bash
    # Add to your main Caddyfile - two subdomain blocks:
 
@@ -267,12 +308,12 @@ chat.yourdomain.com → your.server.ip.address
    ```
    **Tip:** Use the pre-generated `Caddyfile.generated` which has the bcrypt hash already filled in!
 
-4. **Deploy with Caddy**:
+6. **Deploy with Caddy**:
    ```bash
    ./deploy-caddy.sh
    ```
 
-5. **Reload Caddy** to apply configuration:
+7. **Reload Caddy** to apply configuration:
    ```bash
    docker exec -w /etc/caddy caddy caddy reload
    ```

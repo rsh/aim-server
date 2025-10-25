@@ -95,19 +95,26 @@ if ! docker network ls | grep -q caddy_network; then
     fi
 fi
 
-# Check if caddy_data volume exists
-if ! docker volume ls | grep -q caddy_data; then
-    echo -e "${YELLOW}Warning: caddy_data volume does not exist${NC}"
-    echo "This volume should be created by your Caddy instance and contain Let's Encrypt certificates"
+# Check if CADDY_DATA_PATH is set and exists
+CADDY_DATA_PATH=${CADDY_DATA_PATH:-../caddy/caddy-data}
+if [ ! -d "$CADDY_DATA_PATH" ]; then
+    echo -e "${YELLOW}Warning: Caddy data directory does not exist: $CADDY_DATA_PATH${NC}"
+    echo "This directory should contain Let's Encrypt certificates from your Caddy instance"
     echo ""
-    echo "If Caddy is running, the volume should exist automatically."
-    echo "If not, make sure Caddy is deployed first."
+    echo "Options:"
+    echo "  1. Update CADDY_DATA_PATH in .env to point to your Caddy data directory"
+    echo "  2. Follow CADDY-SETUP-INSTRUCTIONS.md to configure Caddy with bind mounts"
+    echo "  3. Create the directory now (certificates will be added when Caddy runs)"
     echo ""
     read -p "Continue anyway? (y/N): " continue_anyway
     if [[ ! $continue_anyway =~ ^[Yy]$ ]]; then
         echo "Deployment cancelled"
+        echo ""
+        echo "To fix: Set CADDY_DATA_PATH in .env or see CADDY-SETUP-INSTRUCTIONS.md"
         exit 1
     fi
+else
+    echo -e "${GREEN}✓${NC} Caddy data directory found: $CADDY_DATA_PATH"
 fi
 
 # Check if stunnel config exists and has been generated
