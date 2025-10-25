@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  retro-aim-server:
+    build:
+      context: ./retro-aim-server
+      dockerfile: Dockerfile
+    container_name: retro-aim-server
+    ports:
+      - "5190:5190"  # OSCAR protocol (AIM/ICQ)
+      - "8080:8080"  # Management API
+      - "9898:9898"  # TOC protocol
+    volumes:
+      - ./data:/app/data
+    environment:
+      - OSCAR_LISTENERS=LOCAL://0.0.0.0:5190
+      - OSCAR_ADVERTISED_LISTENERS_PLAIN=LOCAL://0.0.0.0:5190
+      - TOC_LISTENERS=0.0.0.0:9898
+      - API_LISTENER=0.0.0.0:8080
+      - DB_PATH=/app/data/oscar.sqlite
+      - DISABLE_AUTH=${DISABLE_AUTH:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    restart: unless-stopped
+    networks:
+      - aim-network
+
+networks:
+  aim-network:
+    driver: bridge
+
+volumes:
+  data:
