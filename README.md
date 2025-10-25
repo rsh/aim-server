@@ -4,6 +4,8 @@ This directory contains scripts to easily set up, manage, and back up a [Retro A
 
 ## Quick Start
 
+### Development/Local Use
+
 ```bash
 # Initial setup (clones repo, builds image, creates config)
 ./setup.sh
@@ -14,6 +16,24 @@ This directory contains scripts to easily set up, manage, and back up a [Retro A
 # Stop the server
 ./stop.sh
 ```
+
+### Production Deployment with Caddy
+
+```bash
+# Initial setup (if not done)
+./setup.sh
+
+# Deploy with Caddy reverse proxy
+./deploy-caddy.sh
+
+# View status
+./deploy-caddy.sh status
+
+# View logs
+./deploy-caddy.sh logs
+```
+
+See [Production Deployment](#production-deployment) section below for details.
 
 ## Scripts
 
@@ -71,6 +91,22 @@ Restores a previous backup. The script will:
 6. Offer to restart the server
 
 **Warning**: Restoring will replace your current data!
+
+### `deploy-caddy.sh`
+Production deployment script for use with Caddy reverse proxy. Supports commands:
+- `deploy` - Build and start with Caddy configuration (default)
+- `rebuild` - Rebuild without cache and restart
+- `stop` - Stop all services
+- `restart` - Restart services
+- `logs` - View server logs
+- `status` - Check service and network status
+- `update` - Pull latest changes and redeploy
+- `clean` - Remove everything including data
+
+Uses `docker-compose.caddy.yml` overlay to:
+- Expose Management API via Caddy (HTTPS)
+- Keep OSCAR (5190) and TOC (9898) ports exposed directly
+- Connect to external `caddy_network`
 
 ## Configuration
 
@@ -131,12 +167,15 @@ aim-server/
 ├── docker-compose.yml    # Docker configuration
 ├── .env                  # Environment configuration
 ├── .env.example          # Template configuration
-├── setup.sh              # Initial setup
-├── start.sh              # Start server
-├── stop.sh               # Stop server
-├── teardown.sh           # Complete cleanup
-├── backup.sh             # Backup utility
-└── restore.sh            # Restore from backup
+├── setup.sh                   # Initial setup
+├── start.sh                   # Start server (dev)
+├── stop.sh                    # Stop server
+├── deploy-caddy.sh            # Production deployment with Caddy
+├── teardown.sh                # Complete cleanup
+├── backup.sh                  # Backup utility
+├── restore.sh                 # Restore from backup
+├── Caddyfile.example          # Caddy reverse proxy config template
+└── docker-compose.caddy.yml   # Production Docker compose overlay
 ```
 
 ## Updating
@@ -153,6 +192,113 @@ docker compose build
 ```
 
 Or run `./setup.sh` again - it will prompt to update if changes are available.
+
+## Production Deployment with SSL/TLS
+
+The Caddy deployment includes SSL/TLS support for OSCAR and TOC protocols using stunnel. Caddy automatically manages Let's Encrypt certificates, and stunnel uses them to provide encrypted connections.
+
+### Prerequisites
+- Existing Caddy server with `caddy_network` Docker network
+- `caddy_data` Docker volume (created by Caddy)
+- Domain name pointing to your server
+- Firewall configured for ports: 443, 5190, 5193, 9898, 9899
+
+### Configuration Steps
+
+1. **Update stunnel configuration** with your domain:
+   ```bash
+   nano config/ssl/stunnel.conf
+   # Replace all instances of 'aim.example.com' with your actual domain
+   ```
+
+2. **Add Caddy configuration** from `Caddyfile.example`:
+   ```bash
+   # Add to your main Caddyfile
+   aim.yourdomain.com {
+       reverse_proxy retro-aim-server:8080
+       # ... (see Caddyfile.example for full config)
+   }
+   ```
+
+3. **Deploy with Caddy**:
+   ```bash
+   ./deploy-caddy.sh
+   ```
+
+4. **Reload Caddy** to apply configuration:
+   ```bash
+   docker exec -w /etc/caddy caddy caddy reload
+   ```
+
+### How It Works
+
+**Architecture Diagram:**
+```
+┌─────────────────────────────────────────────────┐
+│              Your Server                        │
+│                                                 │
+│  ┌──────────┐     Automatic Certificate        │
+│  │  Caddy   │     Management (Let's Encrypt)   │
+│  │          │                                   │
+│  │  Stores  ├─────┐                            │
+│  │  Certs   │     │                            │
+│  └────┬─────┘     │                            │
+│       │           │ caddy_data volume          │
+│       │           │ (read-only)                │
+│       ↓           │                            │
+│  Port 443 ←───────┘                            │
+│  (HTTPS API)      ↓                            │
+│              ┌──────────┐                      │
+│              │ stunnel  │ Uses Caddy's certs!  │
+│              └────┬─────┘                      │
+│                   │                             │
+│              Port 5193 (OSCAR SSL)             │
+│              Port 9899 (TOC SSL)               │
+│                   │                             │
+│              ┌────┴─────────┐                  │
+│              │ retro-aim-   │                  │
+│              │ server       │                  │
+│              └──────────────┘                  │
+│              Port 5190 (OSCAR plain)           │
+│              Port 9898 (TOC plain)             │
+└─────────────────────────────────────────────────┘
+```
+
+**Certificate Management:**
+- Caddy automatically obtains Let's Encrypt certificate for your domain
+- Certificate stored in `caddy_data` Docker volume
+- stunnel mounts this volume (read-only) and uses the certificates
+- Caddy handles automatic renewal - stunnel picks up new certs automatically
+- **No manual certificate work needed!** (No certbot, no cron jobs)
+
+**Port Configuration:**
+- **5190** - OSCAR plain (for legacy clients without SSL support)
+- **5193** - OSCAR with SSL/TLS (via stunnel)
+- **9898** - TOC plain (for legacy clients without SSL support)
+- **9899** - TOC with SSL/TLS (via stunnel)
+- **443** - Management API HTTPS (via Caddy)
+
+**Client Configuration:**
+- Modern AIM clients: Use port 5193 for encrypted OSCAR
+- Legacy AIM clients: Use port 5190 for plain OSCAR
+- Management API: Access at `https://aim.yourdomain.com`
+
+### Verification
+
+Check that stunnel is using Caddy's certificates:
+```bash
+# View stunnel logs
+docker logs retro-aim-stunnel
+
+# Should show certificate loaded successfully
+# Look for lines like: "Configuration successful"
+```
+
+Test SSL connection:
+```bash
+openssl s_client -connect yourdomain.com:5193
+# Should show certificate details and successful connection
+```
 
 ## Troubleshooting
 
@@ -182,6 +328,27 @@ ports:
 ./setup.sh
 ./start.sh
 ```
+
+**stunnel/SSL issues:**
+```bash
+# Check if stunnel can access certificates
+docker logs retro-aim-stunnel
+
+# Verify caddy_data volume is mounted
+docker inspect retro-aim-stunnel | grep caddy_data
+
+# Check certificate path (find your domain's cert)
+docker exec caddy ls -la /data/caddy/certificates/acme-v02.api.letsencrypt.org-directory/
+
+# Manually test stunnel can read cert
+docker exec retro-aim-stunnel ls -la /certs/certificates/acme-v02.api.letsencrypt.org-directory/yourdomain.com/
+```
+
+**Clients can't connect with SSL:**
+- Verify firewall allows ports 5193 and 9899
+- Check stunnel logs: `docker logs retro-aim-stunnel`
+- Test with openssl: `openssl s_client -connect yourserver:5193`
+- Some very old AIM clients don't support TLS - use plain ports (5190, 9898)
 
 ## Links
 

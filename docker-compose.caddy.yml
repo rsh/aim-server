@@ -1,0 +1,61 @@
+version: '3.8'
+
+# Caddy production configuration overlay with SSL support
+# Use with: docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# This configuration:
+# - Removes Management API port exposure (Caddy handles HTTPS)
+# - Adds stunnel for SSL/TLS on OSCAR and TOC protocols
+# - Uses Caddy's Let's Encrypt certificates (automatic renewal!)
+# - Connects services to your existing caddy_network
+
+services:
+  retro-aim-server:
+    environment:
+      # Make API accessible from all interfaces on caddy_network
+      - API_LISTENER=0.0.0.0:8080
+      # Override with production settings
+      - DISABLE_AUTH=${DISABLE_AUTH:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    ports:
+      # Plain ports for legacy clients that don't support SSL
+      - "5190:5190"  # OSCAR (AIM/ICQ) - plain
+      - "9898:9898"  # TOC protocol - plain
+      # Note: SSL ports are exposed via stunnel service
+      # Remove Management API port - only accessible via Caddy
+      # - "8080:8080"  # Commented out - handled by Caddy
+    networks:
+      - aim-network
+      - caddy_network
+
+  stunnel:
+    image: dweomer/stunnel:latest
+    container_name: retro-aim-stunnel
+    restart: unless-stopped
+    ports:
+      - "5193:5193"  # OSCAR with SSL/TLS
+      - "9899:9899"  # TOC with SSL/TLS
+    volumes:
+      # stunnel configuration
+      - ./config/ssl/stunnel.conf:/etc/stunnel/stunnel.conf:ro
+      # Mount Caddy's certificate directory (READ-ONLY)
+      # This allows stunnel to use Caddy's auto-renewed Let's Encrypt certs
+      - caddy_data:/certs:ro
+    networks:
+      - aim-network
+    depends_on:
+      - retro-aim-server
+
+networks:
+  # Internal network for stunnel <-> retro-aim-server communication
+  aim-network:
+    driver: bridge
+
+  # Connect to existing Caddy network (for Management API only)
+  caddy_network:
+    external: true
+
+volumes:
+  # Mount Caddy's data volume to access Let's Encrypt certificates
+  caddy_data:
+    external: true
