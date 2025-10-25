@@ -110,19 +110,32 @@ if ! docker volume ls | grep -q caddy_data; then
     fi
 fi
 
-# Check if stunnel config has been customized
-if grep -q "chat.example.com" config/ssl/stunnel.conf 2>/dev/null; then
-    echo -e "${YELLOW}⚠ WARNING: stunnel.conf still contains 'chat.example.com'${NC}"
+# Check if stunnel config exists and has been generated
+if [ ! -f "config/ssl/stunnel.conf" ]; then
+    echo -e "${YELLOW}⚠ WARNING: stunnel.conf not found!${NC}"
     echo ""
-    echo "You need to update config/ssl/stunnel.conf with your actual chat subdomain!"
-    echo "Replace all instances of 'chat.example.com' with your domain."
-    echo "(e.g., chat.yourdomain.com)"
+    echo "Run ./setup.sh to generate stunnel configuration with your chat subdomain."
+    echo ""
+    read -p "Continue without stunnel (no SSL for OSCAR/TOC)? (y/N): " continue_without_stunnel
+    if [[ ! $continue_without_stunnel =~ ^[Yy]$ ]]; then
+        echo "Deployment cancelled"
+        echo ""
+        echo "Run: ./setup.sh"
+        exit 1
+    fi
+elif grep -q "CHAT_DOMAIN_PLACEHOLDER" config/ssl/stunnel.conf 2>/dev/null; then
+    echo -e "${YELLOW}⚠ WARNING: stunnel.conf contains placeholder domain!${NC}"
+    echo ""
+    echo "It looks like stunnel.conf wasn't generated properly."
+    echo "The CHAT_DOMAIN_PLACEHOLDER was not replaced with your actual domain."
+    echo ""
+    echo "Run ./setup.sh again to properly configure stunnel."
     echo ""
     read -p "Continue anyway? (y/N): " continue_stunnel
     if [[ ! $continue_stunnel =~ ^[Yy]$ ]]; then
         echo "Deployment cancelled"
         echo ""
-        echo "Edit config/ssl/stunnel.conf and replace chat.example.com with your subdomain"
+        echo "Run: ./setup.sh"
         exit 1
     fi
 fi

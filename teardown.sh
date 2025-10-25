@@ -53,6 +53,37 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "✓ Images removed"
 fi
 
+# Ask about generated configuration files
+echo ""
+read -p "Do you want to remove generated configuration files? (y/N): " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Removing generated configuration files..."
+
+    # Remove admin credentials
+    if [ -f ".admin-credentials" ]; then
+        rm -f .admin-credentials
+        echo "✓ Removed .admin-credentials"
+    fi
+
+    # Remove generated Caddyfile
+    if [ -f "Caddyfile.generated" ]; then
+        rm -f Caddyfile.generated
+        echo "✓ Removed Caddyfile.generated"
+    fi
+
+    # Remove generated stunnel.conf
+    if [ -f "config/ssl/stunnel.conf" ]; then
+        rm -f config/ssl/stunnel.conf
+        echo "✓ Removed config/ssl/stunnel.conf"
+    fi
+
+    echo "✓ Generated files removed"
+    echo ""
+    echo "Note: Run ./setup.sh to regenerate these files"
+fi
+
 echo ""
 echo "✅ Cleanup complete!"
 echo ""

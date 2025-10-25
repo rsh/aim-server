@@ -4,8 +4,9 @@ retro-aim-server/
 .env
 .admin-credentials
 
-# Generated Caddyfile with credentials
+# Generated configuration files
 Caddyfile.generated
+config/ssl/stunnel.conf
 
 # Data directory (database)
 data/
