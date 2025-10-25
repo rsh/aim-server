@@ -111,17 +111,18 @@ if ! docker volume ls | grep -q caddy_data; then
 fi
 
 # Check if stunnel config has been customized
-if grep -q "aim.example.com" config/ssl/stunnel.conf 2>/dev/null; then
-    echo -e "${YELLOW}⚠ WARNING: stunnel.conf still contains 'aim.example.com'${NC}"
+if grep -q "chat.example.com" config/ssl/stunnel.conf 2>/dev/null; then
+    echo -e "${YELLOW}⚠ WARNING: stunnel.conf still contains 'chat.example.com'${NC}"
     echo ""
-    echo "You need to update config/ssl/stunnel.conf with your actual domain name!"
-    echo "Replace all instances of 'aim.example.com' with your domain."
+    echo "You need to update config/ssl/stunnel.conf with your actual chat subdomain!"
+    echo "Replace all instances of 'chat.example.com' with your domain."
+    echo "(e.g., chat.yourdomain.com)"
     echo ""
     read -p "Continue anyway? (y/N): " continue_stunnel
     if [[ ! $continue_stunnel =~ ^[Yy]$ ]]; then
         echo "Deployment cancelled"
         echo ""
-        echo "Edit config/ssl/stunnel.conf and replace aim.example.com with your domain"
+        echo "Edit config/ssl/stunnel.conf and replace chat.example.com with your subdomain"
         exit 1
     fi
 fi
@@ -145,27 +146,40 @@ case $COMMAND in
         $DOCKER_COMPOSE -f docker-compose.yml -f docker-compose.caddy.yml ps
         echo ""
 
+        # Automatically reload Caddy if it's running
+        echo -e "${BLUE}Reloading Caddy configuration...${NC}"
+        if docker ps --filter "name=caddy" --filter "status=running" --format "{{.Names}}" | grep -q "^caddy$"; then
+            if docker exec -w /etc/caddy caddy caddy reload 2>/dev/null; then
+                echo -e "${GREEN}✓${NC} Caddy configuration reloaded successfully"
+            else
+                echo -e "${YELLOW}⚠${NC}  Caddy reload failed - you may need to reload manually"
+                echo "  Command: docker exec -w /etc/caddy caddy caddy reload"
+            fi
+        else
+            echo -e "${YELLOW}ℹ${NC}  Caddy container not found or not running"
+            echo "  If you have Caddy configured separately, reload it manually:"
+            echo "  docker exec -w /etc/caddy caddy caddy reload"
+        fi
+        echo ""
+
         echo -e "${GREEN}================================${NC}"
         echo -e "${GREEN}Deployment Complete!${NC}"
         echo -e "${GREEN}================================${NC}"
         echo ""
         echo -e "${BLUE}Next steps:${NC}"
         echo "1. Configure Caddy to route to retro-aim-server:8080"
-        echo "   See Caddyfile.example for configuration"
+        echo "   Use Caddyfile.generated (auto-generated with your credentials)"
         echo ""
-        echo "2. Reload Caddy configuration:"
-        echo "   docker exec -w /etc/caddy caddy caddy reload"
-        echo ""
-        echo "3. Open firewall ports for AIM clients:"
+        echo "2. Open firewall ports for AIM clients:"
         echo "   - Port 5190/tcp (OSCAR plain)"
         echo "   - Port 5193/tcp (OSCAR with SSL)"
         echo "   - Port 9898/tcp (TOC plain)"
         echo "   - Port 9899/tcp (TOC with SSL)"
         echo ""
-        echo "4. Test Management API connectivity:"
+        echo "3. Test Management API connectivity:"
         echo "   docker exec caddy wget -O- http://retro-aim-server:8080/user"
         echo ""
-        echo "5. Verify stunnel is using Caddy's certificates:"
+        echo "4. Verify stunnel is using Caddy's certificates:"
         echo "   docker logs retro-aim-stunnel"
         echo ""
         echo -e "${BLUE}Access points:${NC}"

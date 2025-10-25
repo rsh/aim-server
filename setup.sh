@@ -219,6 +219,58 @@ if [ -f "Caddyfile.template" ]; then
     echo ""
 fi
 
+# ============================================================================
+# Generate stunnel.conf from template
+# ============================================================================
+
+echo "═══════════════════════════════════════════════════════"
+echo "  🔒 SSL/TLS Configuration (stunnel)"
+echo "═══════════════════════════════════════════════════════"
+echo ""
+
+if [ ! -f "config/ssl/stunnel.conf" ]; then
+    if [ -f "config/ssl/stunnel.conf.template" ]; then
+        echo "Configuring stunnel for encrypted OSCAR/TOC connections..."
+        echo ""
+
+        # Check if CHAT_DOMAIN is set in .env
+        CHAT_DOMAIN=""
+        if [ -f ".env" ]; then
+            # Source .env to get CHAT_DOMAIN if it exists
+            source .env 2>/dev/null || true
+        fi
+
+        # If CHAT_DOMAIN is not set or is still the example, prompt for it
+        if [ -z "$CHAT_DOMAIN" ] || [ "$CHAT_DOMAIN" == "chat.example.com" ]; then
+            echo "stunnel needs your chat subdomain for SSL/TLS certificate configuration."
+            echo "This should match the subdomain configured in Caddy (e.g., chat.yourdomain.com)"
+            echo ""
+            read -p "Enter your chat subdomain: " CHAT_DOMAIN
+            echo ""
+        fi
+
+        # Validate that a domain was provided
+        if [ -z "$CHAT_DOMAIN" ]; then
+            echo -e "${YELLOW}⚠${NC}  No chat domain provided, skipping stunnel.conf generation"
+            echo "  You can generate it later by re-running setup.sh or manually editing config/ssl/stunnel.conf.template"
+        else
+            # Generate stunnel.conf from template
+            sed "s|CHAT_DOMAIN_PLACEHOLDER|$CHAT_DOMAIN|g" \
+                config/ssl/stunnel.conf.template > config/ssl/stunnel.conf
+            echo -e "${GREEN}✓${NC} Generated config/ssl/stunnel.conf"
+            echo "  Chat domain: $CHAT_DOMAIN"
+            echo ""
+            echo "  stunnel will use Caddy's Let's Encrypt certificate for $CHAT_DOMAIN"
+            echo "  Encrypted ports: 5193 (OSCAR), 9899 (TOC)"
+        fi
+    else
+        echo -e "${YELLOW}⚠${NC}  stunnel.conf.template not found, skipping stunnel configuration"
+    fi
+else
+    echo -e "${YELLOW}⚠${NC}  config/ssl/stunnel.conf already exists, skipping generation"
+    echo "  Existing configuration preserved"
+fi
+
 echo ""
 
 # ============================================================================

@@ -142,7 +142,7 @@ cat .admin-credentials
 Create users via the Management API (requires authentication):
 
 ```bash
-# For production (with authentication)
+# For production (with authentication) - use aim subdomain
 curl -u admin:YOUR_PASSWORD -d'{"screen_name":"MyScreenName", "password":"mypassword"}' https://aim.yourdomain.com/user
 
 # For local development (no auth)
@@ -157,6 +157,8 @@ curl -u admin:YOUR_PASSWORD -X DELETE -d'{"screen_name":"MyScreenName"}' https:/
 # Change password
 curl -u admin:YOUR_PASSWORD -X PUT -d'{"screen_name":"MyScreenName", "password":"newpassword"}' https://aim.yourdomain.com/user/password
 ```
+
+**Note:** The Management API uses the `aim` subdomain, while chat clients connect to the `chat` subdomain.
 
 ## Docker Commands
 
@@ -191,7 +193,8 @@ aim-server/
 ├── teardown.sh                # Complete cleanup
 ├── backup.sh                  # Backup utility
 ├── restore.sh                 # Restore from backup
-├── Caddyfile.example          # Caddy reverse proxy config template
+├── Caddyfile.template         # Caddy config template (used by setup.sh)
+├── Caddyfile.generated        # Auto-generated Caddy config with credentials
 └── docker-compose.caddy.yml   # Production Docker compose overlay
 ```
 
@@ -217,8 +220,18 @@ The Caddy deployment includes SSL/TLS support for OSCAR and TOC protocols using 
 ### Prerequisites
 - Existing Caddy server with `caddy_network` Docker network
 - `caddy_data` Docker volume (created by Caddy)
-- Domain name pointing to your server
+- Domain name with subdomains pointing to your server:
+  - `aim.yourdomain.com` - Management API
+  - `chat.yourdomain.com` - Chat connections (OSCAR/TOC)
 - Firewall configured for ports: 443, 5190, 5193, 9898, 9899
+
+### DNS Setup
+
+Create two A records pointing to your server's IP:
+```
+aim.yourdomain.com  → your.server.ip.address
+chat.yourdomain.com → your.server.ip.address
+```
 
 ### Configuration Steps
 
@@ -226,29 +239,33 @@ The Caddy deployment includes SSL/TLS support for OSCAR and TOC protocols using 
    ```bash
    ./setup.sh
    ```
-   This will generate admin credentials in `.admin-credentials` file.
+   This will generate admin credentials and `Caddyfile.generated`
 
-2. **Update stunnel configuration** with your domain:
+2. **Update stunnel configuration** with your chat subdomain:
    ```bash
    nano config/ssl/stunnel.conf
-   # Replace all instances of 'aim.example.com' with your actual domain
+   # Replace 'chat.example.com' with your actual chat subdomain
+   # (e.g., chat.yourdomain.com)
    ```
 
-3. **Add Caddy configuration** from `Caddyfile.example`:
+3. **Add Caddyfile configuration** (use the auto-generated `Caddyfile.generated`):
    ```bash
-   # Add to your main Caddyfile
+   # Add to your main Caddyfile - two subdomain blocks:
+
+   # 1. Management API
    aim.yourdomain.com {
        reverse_proxy retro-aim-server:8080
-
-       # Add the basicauth hash from .admin-credentials
        basicauth {
-           admin YOUR_BCRYPT_HASH_FROM_ADMIN_CREDENTIALS_FILE
+           admin YOUR_HASH_FROM_ADMIN_CREDENTIALS
        }
+   }
 
-       # ... (see Caddyfile.example for full config)
+   # 2. Chat subdomain (for SSL certificate)
+   chat.yourdomain.com {
+       respond "AIM Server - Use ports 5193 (OSCAR) or 9899 (TOC) for encrypted chat" 200
    }
    ```
-   **Important:** Replace `YOUR_BCRYPT_HASH_FROM_ADMIN_CREDENTIALS_FILE` with the hash from `.admin-credentials`
+   **Tip:** Use the pre-generated `Caddyfile.generated` which has the bcrypt hash already filled in!
 
 4. **Deploy with Caddy**:
    ```bash
@@ -295,23 +312,27 @@ The Caddy deployment includes SSL/TLS support for OSCAR and TOC protocols using 
 ```
 
 **Certificate Management:**
-- Caddy automatically obtains Let's Encrypt certificate for your domain
-- Certificate stored in `caddy_data` Docker volume
-- stunnel mounts this volume (read-only) and uses the certificates
+- Caddy automatically obtains Let's Encrypt certificates for **both subdomains**:
+  - `aim.yourdomain.com` - Used by Caddy for Management API HTTPS
+  - `chat.yourdomain.com` - Used by stunnel for OSCAR/TOC SSL
+- Certificates stored in `caddy_data` Docker volume
+- stunnel mounts this volume (read-only) and uses the chat subdomain certificate
 - Caddy handles automatic renewal - stunnel picks up new certs automatically
 - **No manual certificate work needed!** (No certbot, no cron jobs)
 
-**Port Configuration:**
-- **5190** - OSCAR plain (for legacy clients without SSL support)
-- **5193** - OSCAR with SSL/TLS (via stunnel)
-- **9898** - TOC plain (for legacy clients without SSL support)
-- **9899** - TOC with SSL/TLS (via stunnel)
-- **443** - Management API HTTPS (via Caddy)
+**Subdomain Configuration:**
+- **aim.yourdomain.com** - Management API (HTTPS via Caddy)
+  - Port 443 (HTTPS) - Web-based administration
+- **chat.yourdomain.com** - Chat connections (both plain and SSL)
+  - Port 5190 - OSCAR plain (for legacy clients)
+  - Port 5193 - OSCAR with SSL/TLS (via stunnel)
+  - Port 9898 - TOC plain (for legacy clients)
+  - Port 9899 - TOC with SSL/TLS (via stunnel)
 
 **Client Configuration:**
-- Modern AIM clients: Use port 5193 for encrypted OSCAR
-- Legacy AIM clients: Use port 5190 for plain OSCAR
-- Management API: Access at `https://aim.yourdomain.com`
+- Management API: `https://aim.yourdomain.com`
+- Modern AIM clients: `chat.yourdomain.com:5193` (encrypted OSCAR)
+- Legacy AIM clients: `chat.yourdomain.com:5190` (plain OSCAR)
 
 ### Verification
 
@@ -326,8 +347,8 @@ docker logs retro-aim-stunnel
 
 Test SSL connection:
 ```bash
-openssl s_client -connect yourdomain.com:5193
-# Should show certificate details and successful connection
+openssl s_client -connect chat.yourdomain.com:5193
+# Should show certificate details for chat.yourdomain.com and successful connection
 ```
 
 ## Troubleshooting

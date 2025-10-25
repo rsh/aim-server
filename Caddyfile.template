@@ -1,8 +1,9 @@
-# Example Caddyfile configuration for Retro AIM Server
+# Caddyfile configuration for Retro AIM Server
 # Add these blocks to your main Caddyfile
-# Replace aim.example.com with your actual domain
+# Replace example.com with your actual domain
 
 # Management API - Web-based administration
+# Uses subdomain: aim.example.com
 aim.example.com {
     reverse_proxy retro-aim-server:8080
 
@@ -12,7 +13,7 @@ aim.example.com {
     # Restrict access to management API with basic auth
     # IMPORTANT: Replace the hash below with the one from .admin-credentials
     # Generated during setup.sh
-    # New password generated at: TIMESTAMP_PLACEHOLDER
+    # TIMESTAMP_PLACEHOLDER
     basicauth {
         admin YOUR_BCRYPT_HASH_HERE
     }
@@ -30,14 +31,24 @@ aim.example.com {
     }
 }
 
+# Obtain certificate for chat subdomain (for stunnel to use)
+# Uses subdomain: chat.example.com
+# This route doesn't serve any content - it just gets a Let's Encrypt certificate
+# that stunnel will use for OSCAR/TOC SSL connections
+chat.example.com {
+    respond "AIM Server - Use ports 5193 (OSCAR) or 9899 (TOC) for encrypted chat" 200
+}
+
 # SSL/TLS for OSCAR and TOC protocols:
-# Caddy automatically obtains and renews Let's Encrypt certificates for aim.example.com
-# stunnel uses these certificates to provide SSL/TLS for the binary OSCAR/TOC protocols
-# No additional configuration needed - Caddy handles certificate management!
+# Caddy automatically obtains Let's Encrypt certificates for both subdomains:
+#   - aim.example.com (for Management API HTTPS)
+#   - chat.example.com (for OSCAR/TOC SSL via stunnel)
+# stunnel uses the chat.example.com certificate for encrypted connections
+# No additional certificate work needed - Caddy handles everything!
 #
-# Port configuration:
-#   - Port 443: Management API via Caddy (HTTPS)
-#   - Port 5190: OSCAR protocol (plain, for legacy clients)
-#   - Port 5193: OSCAR protocol with SSL (via stunnel, uses Caddy's cert)
-#   - Port 9898: TOC protocol (plain, for legacy clients)
-#   - Port 9899: TOC protocol with SSL (via stunnel, uses Caddy's cert)
+# Client Configuration:
+#   Management API:  https://aim.example.com (HTTPS)
+#   OSCAR plain:     chat.example.com:5190 (no encryption, legacy clients)
+#   OSCAR SSL:       chat.example.com:5193 (encrypted via stunnel)
+#   TOC plain:       chat.example.com:9898 (no encryption, legacy clients)
+#   TOC SSL:         chat.example.com:9899 (encrypted via stunnel)
