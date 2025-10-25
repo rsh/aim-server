@@ -4,6 +4,9 @@ retro-aim-server/
 .env
 .admin-credentials
 
+# Generated Caddyfile with credentials
+Caddyfile.generated
+
 # Data directory (database)
 data/
 
