@@ -142,6 +142,8 @@ echo "  🔐 Admin Credentials Setup"
 echo "═══════════════════════════════════════════════════════"
 echo ""
 
+CREDS_STATUS=""
+
 if [ ! -f ".admin-credentials" ]; then
     echo "Generating secure admin password for Management API..."
 
@@ -194,19 +196,27 @@ EOF
     echo "  }"
     echo ""
 
-    # Generate Caddyfile from template
-    if [ -f "Caddyfile.template" ]; then
-        TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S %Z")
-        sed -e "s|YOUR_BCRYPT_HASH_HERE|$ADMIN_HASH|g" \
-            -e "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP|g" \
-            Caddyfile.template > Caddyfile.generated
-        echo -e "${GREEN}✓${NC} Generated Caddyfile.generated with admin credentials"
-        echo "  Timestamp: $TIMESTAMP"
-        echo ""
-    fi
+    CREDS_STATUS="New password generated at:"
 else
     echo -e "${YELLOW}⚠${NC}  .admin-credentials already exists, skipping generation"
     echo "  Existing credentials are in: .admin-credentials"
+    echo ""
+
+    # Extract existing hash for Caddyfile generation
+    ADMIN_HASH=$(grep "^Bcrypt Hash:" .admin-credentials | cut -d' ' -f3-)
+
+    CREDS_STATUS="Used existing creds to generate this file on"
+fi
+
+# Generate Caddyfile from template (always run)
+if [ -f "Caddyfile.template" ]; then
+    TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S %Z")
+    sed -e "s|YOUR_BCRYPT_HASH_HERE|$ADMIN_HASH|g" \
+        -e "s|TIMESTAMP_PLACEHOLDER|$CREDS_STATUS $TIMESTAMP|g" \
+        Caddyfile.template > Caddyfile.generated
+    echo -e "${GREEN}✓${NC} Generated Caddyfile.generated with admin credentials"
+    echo "  Timestamp: $TIMESTAMP"
+    echo ""
 fi
 
 echo ""
