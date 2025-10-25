@@ -12,6 +12,7 @@ aim.example.com {
     # Restrict access to management API with basic auth
     # IMPORTANT: Replace the hash below with the one from .admin-credentials
     # Generated during setup.sh
+    # New password generated at: TIMESTAMP_PLACEHOLDER
     basicauth {
         admin YOUR_BCRYPT_HASH_HERE
     }

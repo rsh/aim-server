@@ -14,6 +14,7 @@ echo ""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # ============================================================================
@@ -192,6 +193,17 @@ EOF
     echo "      admin $ADMIN_HASH"
     echo "  }"
     echo ""
+
+    # Generate Caddyfile from template
+    if [ -f "Caddyfile.template" ]; then
+        TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S %Z")
+        sed -e "s|YOUR_BCRYPT_HASH_HERE|$ADMIN_HASH|g" \
+            -e "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP|g" \
+            Caddyfile.template > Caddyfile.generated
+        echo -e "${GREEN}✓${NC} Generated Caddyfile.generated with admin credentials"
+        echo "  Timestamp: $TIMESTAMP"
+        echo ""
+    fi
 else
     echo -e "${YELLOW}⚠${NC}  .admin-credentials already exists, skipping generation"
     echo "  Existing credentials are in: .admin-credentials"
