@@ -1,12 +1,10 @@
 version: '3.8'
 
-# Caddy production configuration overlay with SSL support
+# Caddy production configuration overlay
 # Use with: docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
 #
 # This configuration:
 # - Removes Management API port exposure (Caddy handles HTTPS)
-# - Adds stunnel for SSL/TLS on OSCAR and TOC protocols
-# - Uses Caddy's Let's Encrypt certificates (automatic renewal!)
 # - Connects services to your existing caddy_network
 
 services:
@@ -18,45 +16,19 @@ services:
       - DISABLE_AUTH=${DISABLE_AUTH:-false}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     ports:
-      # Plain ports for legacy clients that don't support SSL
-      - "5190:5190"  # OSCAR (AIM/ICQ) - plain
-      - "9898:9898"  # TOC protocol - plain
-      # Note: SSL ports are exposed via stunnel service
-      # Remove Management API port - only accessible via Caddy
-      # - "8080:8080"  # Commented out - handled by Caddy
+      - "5190:5190"  # OSCAR (AIM/ICQ)
+      - "9898:9898"  # TOC protocol
+      # Management API port removed - only accessible via Caddy
+      # - "8080:8080"
     networks:
       - aim-network
       - caddy_network
 
-  stunnel:
-    image: dweomer/stunnel:latest
-    container_name: retro-aim-stunnel
-    restart: unless-stopped
-    ports:
-      - "5193:5193"  # OSCAR with SSL/TLS
-      - "9899:9899"  # TOC with SSL/TLS
-    volumes:
-      # stunnel configuration
-      - ./config/ssl/stunnel.conf:/etc/stunnel/stunnel.conf:ro
-      # Mount Caddy's certificate directory (READ-ONLY)
-      # This allows stunnel to use Caddy's auto-renewed Let's Encrypt certs
-      # Update this path to match where your Caddy stores certificates on the host
-      - ${CADDY_DATA_PATH:-../caddy/caddy-data}:/certs:ro
-    networks:
-      - aim-network
-    depends_on:
-      - retro-aim-server
-
 networks:
-  # Internal network for stunnel <-> retro-aim-server communication
+  # Internal network for AIM server
   aim-network:
     driver: bridge
 
-  # Connect to existing Caddy network (for Management API only)
+  # Connect to existing Caddy network (for Management API)
   caddy_network:
     external: true
-
-# volumes:
-  # No longer using external Docker volume
-  # Certificates are now accessed via bind mount from host filesystem
-  # Set CADDY_DATA_PATH in .env to point to your Caddy data directory

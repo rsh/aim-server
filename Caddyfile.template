@@ -1,9 +1,16 @@
 # Caddyfile configuration for Retro AIM Server
-# Add these blocks to your main Caddyfile
-# Replace example.com with your actual domain
+# ==================================================
+# Add these TWO blocks to your main Caddyfile
+#
+# Instructions:
+# 1. Replace 'aim.example.com' with your actual management API domain (e.g., aim.rsh.co)
+# 2. Replace 'chat.example.com' with your actual chat domain (e.g., aimchat.rsh.co)
+# 3. The bcrypt hash below is auto-generated - it's ready to use!
+# 4. Add both blocks to your Caddy config and reload: docker exec -w /etc/caddy caddy caddy reload
+#
+# See PRODUCTION-INTEGRATION.md for complete deployment instructions
 
-# Management API - Web-based administration
-# Uses subdomain: aim.example.com
+# Block 1: Management API - Web-based administration
 aim.example.com {
     reverse_proxy retro-aim-server:8080
 
@@ -11,9 +18,10 @@ aim.example.com {
     encode gzip zstd
 
     # Restrict access to management API with basic auth
-    # IMPORTANT: Replace the hash below with the one from .admin-credentials
-    # Generated during setup.sh
+    # Admin credentials generated during setup.sh
     # TIMESTAMP_PLACEHOLDER
+    # Username: admin
+    # Password: See .admin-credentials file
     basicauth {
         admin YOUR_BCRYPT_HASH_HERE
     }
@@ -31,24 +39,9 @@ aim.example.com {
     }
 }
 
-# Obtain certificate for chat subdomain (for stunnel to use)
-# Uses subdomain: chat.example.com
-# This route doesn't serve any content - it just gets a Let's Encrypt certificate
-# that stunnel will use for OSCAR/TOC SSL connections
-chat.example.com {
-    respond "AIM Server - Use ports 5193 (OSCAR) or 9899 (TOC) for encrypted chat" 200
-}
-
-# SSL/TLS for OSCAR and TOC protocols:
-# Caddy automatically obtains Let's Encrypt certificates for both subdomains:
-#   - aim.example.com (for Management API HTTPS)
-#   - chat.example.com (for OSCAR/TOC SSL via stunnel)
-# stunnel uses the chat.example.com certificate for encrypted connections
-# No additional certificate work needed - Caddy handles everything!
-#
-# Client Configuration:
-#   Management API:  https://aim.example.com (HTTPS)
-#   OSCAR plain:     chat.example.com:5190 (no encryption, legacy clients)
-#   OSCAR SSL:       chat.example.com:5193 (encrypted via stunnel)
-#   TOC plain:       chat.example.com:9898 (no encryption, legacy clients)
-#   TOC SSL:         chat.example.com:9899 (encrypted via stunnel)
+# ==================================================
+# Client Access Points:
+# ==================================================
+#   Management API:  https://aim.example.com (HTTPS via Caddy with auth)
+#   OSCAR:           <your-server-ip>:5190
+#   TOC:             <your-server-ip>:9898

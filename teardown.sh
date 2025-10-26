@@ -73,12 +73,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "✓ Removed Caddyfile.generated"
     fi
 
-    # Remove generated stunnel.conf
-    if [ -f "config/ssl/stunnel.conf" ]; then
-        rm -f config/ssl/stunnel.conf
-        echo "✓ Removed config/ssl/stunnel.conf"
-    fi
-
     echo "✓ Generated files removed"
     echo ""
     echo "Note: Run ./setup.sh to regenerate these files"
